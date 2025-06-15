@@ -1,0 +1,91 @@
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { firebaseConfig } from './firebaseConfig.js';
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  let currentUser = null;
+
+  window.login = async function () {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    console.log("🔐 Attempting login with:", email);
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      currentUser = userCredential.user;
+      console.log("✅ Login successful:", currentUser.email);
+
+      const userDoc = await getDoc(doc(db, "users", currentUser.email));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        console.log("👤 User data from Firestore:", data);
+        document.getElementById("user_name").innerText = data.name;
+        document.getElementById("user_role").innerText = data.role;
+        document.getElementById("dashboard").style.display = "block";
+        if (data.role === "Admin") {
+          document.getElementById("admin_panel").style.display = "block";
+        }
+      } else {
+        alert("⚠️ Login succeeded, but no user data found in Firestore.");
+        console.warn("No Firestore document found for:", currentUser.email);
+      }
+    } catch (error) {
+      console.error("❌ Login error:", error.message);
+      alert("Login failed: " + error.message);
+    }
+  };
+
+  window.addUser = async function () {
+    const email = document.getElementById("new_email").value;
+    const name = document.getElementById("new_name").value;
+    const password = document.getElementById("new_password").value;
+    const role = document.getElementById("new_role").value;
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, "users", email), { name, role, createdBy: currentUser.email });
+      alert("✅ User added");
+    } catch (error) {
+      console.error("Error adding user:", error.message);
+      alert("Error adding user: " + error.message);
+    }
+  };
+
+  window.deleteUser = async function () {
+    alert("⚠️ Deleting users requires Firebase Admin SDK. Please delete from Firebase Console.");
+  };
+
+  window.submitAttendance = async function () {
+    try {
+      await addDoc(collection(db, "attendance"), {
+        email: currentUser.email,
+        name: document.getElementById("user_name").innerText,
+        date: document.getElementById("a_date").value,
+        clockIn: document.getElementById("a_in").value,
+        clockOut: document.getElementById("a_out").value
+      });
+      alert("✅ Attendance submitted");
+    } catch (error) {
+      console.error("❌ Attendance submission error:", error.message);
+    }
+  };
+
+  window.submitPerformance = async function () {
+    try {
+      await addDoc(collection(db, "performance"), {
+        email: currentUser.email,
+        name: document.getElementById("user_name").innerText,
+        date: document.getElementById("p_date").value,
+        calls: document.getElementById("calls").value,
+        demos: document.getElementById("demos").value,
+        revenue: document.getElementById("revenue").value
+      });
+      alert("✅ Performance submitted");
+    } catch (error) {
+      console.error("❌ Performance submission error:", error.message);
+    }
+  };
+</script>
